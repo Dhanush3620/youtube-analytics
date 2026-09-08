@@ -12,15 +12,6 @@ VoxTube analyzes YouTube comments using **OpenAI embeddings** and **clustering a
 
 Popular videos have tens of thousands of comments, and nobody reads them all. VoxTube uses AI to help you understand what the crowd actually thinks, feels, and experiences.
 
-## ✨ Features
-
-- 🎛️ **The Clarity Dial**: A unique interactive slider that lets you navigate through data at different levels of synthesis:
-  - **Raw**: Unfiltered comments in their original form.
-  - **Clusters**: Similar comments grouped together algorithmically.
-  - **Themes**: AI-labeled topics and recurring discussions.
-  - **Summary**: A cohesive, synthesized overview of the entire comment section.
-- 📖 **Listener Stories**: Automatically detects and surfaces comments containing profound personal memories and experiences.
-- 🎨 **Modern UI**: A sleek, comfortable viewing experience with beautiful Framer Motion animations.
 
 ## 🛠️ Tech Stack
 
