@@ -17,14 +17,14 @@ Popular videos have tens of thousands of comments, and nobody reads them all. Vo
 
 - **Frontend**: React, TypeScript, Vite
 - **Styling**: Tailwind CSS, Framer Motion, Lucide Icons
-- **AI & Data**: OpenAI API (Embeddings & LLM Analysis), YouTube Data API v3
+- **AI & Data**: Gemini API (gemini-embedding-2 & gemini-3.6-flash), YouTube Data API v3
 
 ## 🧠 How It Works
 
 1. **Fetch**: Retrieves top comments from the selected YouTube video.
-2. **Embed**: Uses OpenAI's embedding models to convert text into high-dimensional vectors to measure semantic similarity.
+2. **Embed**: Uses Gemini's `gemini-embedding-2` to convert text into high-dimensional vectors to measure semantic similarity.
 3. **Cluster**: Groups comments based on their distance in the vector space.
-4. **Analyze & Summarize**: Leverages LLMs to generate readable labels for clusters, extract personal stories, and write a concise prose summary of the overall sentiment.
+4. **Analyze & Summarize**: Leverages `gemini-3.6-flash` to generate readable labels for clusters, extract personal stories, and write a concise prose summary of the overall sentiment.
 
 ## 🚀 Getting Started
 

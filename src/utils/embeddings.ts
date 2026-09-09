@@ -1,10 +1,9 @@
-import OpenAI from 'openai'
+import { GoogleGenAI } from '@google/genai'
 
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
 
-const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true // Required for client-side usage
+const ai = new GoogleGenAI({
+  apiKey: GEMINI_API_KEY
 })
 
 export interface CommentWithEmbedding {
@@ -23,13 +22,9 @@ export interface CommentWithEmbedding {
 function cleanTextForEmbedding(text: string): string {
   if (!text) return ''
   
-  // Trim and normalize whitespace
   let cleaned = text.trim().replace(/\s+/g, ' ')
-  
-  // Remove null characters and other problematic characters
   cleaned = cleaned.replace(/\0/g, '')
   
-  // Ensure it's not too long (API limit is ~8000 tokens, so cap chars)
   if (cleaned.length > 8000) {
     cleaned = cleaned.slice(0, 8000)
   }
@@ -45,13 +40,11 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * Get embeddings for a batch of texts using OpenAI's text-embedding-3-small
- * Uses smaller batches and retries for rate limiting
+ * Get embeddings for a batch of texts using Gemini's text-embedding-004
  */
 export async function getEmbeddings(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return []
 
-  // Clean all texts and track which ones are valid
   const cleanedTexts = texts.map(cleanTextForEmbedding)
   const validIndices: number[] = []
   const validTexts: string[] = []
@@ -67,53 +60,43 @@ export async function getEmbeddings(texts: string[]): Promise<number[][]> {
     return texts.map(() => [])
   }
 
-  // Use smaller batch size to avoid rate limits
-  const BATCH_SIZE = 50
   const validEmbeddings: number[][] = []
   
-  for (let i = 0; i < validTexts.length; i += BATCH_SIZE) {
-    const batch = validTexts.slice(i, i + BATCH_SIZE)
-    
-    // Retry logic for rate limiting
-    let retries = 3
-    let success = false
-    
-    while (retries > 0 && !success) {
-      try {
-        const response = await openai.embeddings.create({
-          model: 'text-embedding-3-small',
-          input: batch,
-        })
-
-        const embeddings = response.data.map(item => item.embedding)
-        validEmbeddings.push(...embeddings)
-        success = true
-        
-        // Small delay between batches to avoid rate limiting
-        if (i + BATCH_SIZE < validTexts.length) {
-          await delay(200)
-        }
-      } catch (error: unknown) {
-        const err = error as { status?: number; message?: string }
-        console.error('Embedding error:', err.message || error)
-        
-        if (err.status === 429) {
-          // Rate limited - wait longer and retry
-          console.log('Rate limited, waiting 2 seconds...')
-          await delay(2000)
-          retries--
-        } else {
-          // Other error - add empty embeddings for this batch
-          validEmbeddings.push(...batch.map(() => []))
-          success = true
+  const CHUNK_SIZE = 10;
+  for (let i = 0; i < validTexts.length; i += CHUNK_SIZE) {
+    const chunk = validTexts.slice(i, i + CHUNK_SIZE)
+    const chunkPromises = chunk.map(async (text) => {
+      let attempt = 0
+      const maxRetries = 3
+      while (attempt < maxRetries) {
+        try {
+          const response = await ai.models.embedContent({
+            model: 'gemini-embedding-2',
+            contents: text,
+          })
+          return response.embeddings?.[0]?.values || []
+        } catch (error: any) {
+          if (error.status === 429) {
+            attempt++
+            if (attempt < maxRetries) {
+              const backoffMs = Math.pow(2, attempt) * 1000
+              console.log(`Rate limited. Exponential backoff: waiting ${backoffMs / 1000} seconds...`)
+              await delay(backoffMs)
+            } else {
+              return []
+            }
+          } else {
+            console.error('Embedding error:', error)
+            return []
+          }
         }
       }
-    }
+      return []
+    })
     
-    if (!success) {
-      // Failed after retries
-      validEmbeddings.push(...batch.map(() => []))
-    }
+    const chunkResults = await Promise.all(chunkPromises)
+    validEmbeddings.push(...chunkResults)
+    await delay(300)
   }
 
   // Map embeddings back to original indices
@@ -121,8 +104,6 @@ export async function getEmbeddings(texts: string[]): Promise<number[][]> {
   validIndices.forEach((originalIdx, embeddingIdx) => {
     result[originalIdx] = validEmbeddings[embeddingIdx] || []
   })
-
-  console.log(`Embeddings: ${validEmbeddings.filter(e => e.length > 0).length}/${texts.length} successful`)
 
   return result
 }

@@ -1,10 +1,9 @@
-import OpenAI from 'openai'
+import { GoogleGenAI } from '@google/genai'
 
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
 
-const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true
+const ai = new GoogleGenAI({
+  apiKey: GEMINI_API_KEY
 })
 
 export interface ClusterName {
@@ -40,12 +39,11 @@ export async function generateClusterNames(
   ).join('\n\n')
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `You name clusters of YouTube comments about music videos. 
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: `Name these comment clusters:\n\n${clusterDescriptions}`,
+      config: {
+        systemInstruction: `You name clusters of YouTube comments about music videos. 
           
 Your names should be:
 - Evocative and poetic, like "late-night solitude" or "childhood safety" or "post-breakup spiral"
@@ -54,18 +52,13 @@ Your names should be:
 - Lowercase, no punctuation
 
 Respond with JSON array: [{"clusterId": number, "name": "string", "confidence": 0.0-1.0}]
-Confidence reflects how coherent the cluster feels (1.0 = very tight theme, 0.5 = mixed).`
-        },
-        {
-          role: 'user',
-          content: `Name these comment clusters:\n\n${clusterDescriptions}`
-        }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7
+Confidence reflects how coherent the cluster feels (1.0 = very tight theme, 0.5 = mixed).`,
+        responseMimeType: 'application/json',
+        temperature: 0.7
+      }
     })
 
-    const content = response.choices[0]?.message?.content
+    const content = response.text
     if (!content) return clusters.map(c => ({ clusterId: c.id, name: 'unnamed feeling', confidence: 0.5 }))
 
     const parsed = JSON.parse(content)
@@ -102,12 +95,11 @@ export async function generateClaims(
   ).join('\n\n')
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `You write prose summaries of how people respond to music. Your writing must be:
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: `Summarize these ${totalComments} comments across ${clusters.length} clusters:\n\n${clusterSummary}`,
+      config: {
+        systemInstruction: `You write prose summaries of how people respond to music. Your writing must be:
 
 1. ACCOUNTABLE: Every claim cites a count, e.g. "Many listeners describe... (132 comments)"
 2. HUMBLE: Use hedging language - "seem to", "many describe", "a smaller group"
@@ -117,18 +109,13 @@ export async function generateClaims(
 Structure: 2-4 sentences covering major themes, then minority perspectives.
 End with a reflection that this is "one way of speaking about many experiences."
 
-Respond with JSON: {"claims": [{"text": "...", "clusterIds": [0, 1], "commentCount": 150}]}`
-        },
-        {
-          role: 'user',
-          content: `Summarize these ${totalComments} comments across ${clusters.length} clusters:\n\n${clusterSummary}`
-        }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.6
+Respond with JSON: {"claims": [{"text": "...", "clusterIds": [0, 1], "commentCount": 150}]}`,
+        responseMimeType: 'application/json',
+        temperature: 0.6
+      }
     })
 
-    const content = response.choices[0]?.message?.content
+    const content = response.text
     if (!content) {
       return [{
         id: 0,
@@ -176,12 +163,11 @@ export async function generateProseSummary(
     .join('\n')
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `You write cohesive prose summaries of YouTube comment sections for music videos. Your summary should:
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: `Summarize these ${totalComments} comments${videoTitle ? ` for "${videoTitle}"` : ''}:\n\n${clusterSummary}`,
+      config: {
+        systemInstruction: `You write cohesive prose summaries of YouTube comment sections for music videos. Your summary should:
 
 1. Be 3-5 sentences that flow naturally as a paragraph
 2. Mention specific numbers (e.g., "the largest group of 48 comments")
@@ -189,17 +175,12 @@ export async function generateProseSummary(
 4. Feel like insightful analysis, not a list
 5. Use phrases like "reveals", "captures", "emerges", "suggests"
 
-Write in third person, as if describing what the comment section shows.`
-        },
-        {
-          role: 'user',
-          content: `Summarize these ${totalComments} comments${videoTitle ? ` for "${videoTitle}"` : ''}:\n\n${clusterSummary}`
-        }
-      ],
-      temperature: 0.7
+Write in third person, as if describing what the comment section shows.`,
+        temperature: 0.7
+      }
     })
 
-    const content = response.choices[0]?.message?.content
+    const content = response.text
     return content || `Analysis of ${totalComments} comments across ${clusters.length} distinct themes.`
   } catch (error) {
     console.error('Failed to generate prose summary:', error)
@@ -216,7 +197,6 @@ export async function detectStoryComments(
 ): Promise<StoryComment[]> {
   if (comments.length === 0) return []
 
-  // Take a sample of comments to analyze (max 100 for API efficiency)
   const sampleComments = comments.slice(0, 100)
 
   const commentTexts = sampleComments.map((c, i) =>
@@ -224,12 +204,11 @@ export async function detectStoryComments(
   ).join('\n')
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `You identify YouTube comments that contain personal stories, memories, or meaningful experiences related to a song.
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: `Identify which of these comments contain personal stories or memories:\n\n${commentTexts}`,
+      config: {
+        systemInstruction: `You identify YouTube comments that contain personal stories, memories, or meaningful experiences related to a song.
 
 Look for comments where someone shares:
 - A specific memory triggered by the song (e.g., "This reminds me of when...")
@@ -244,24 +223,18 @@ Do NOT include:
 - Short comments without narrative content
 
 Return a JSON object with an array of indices (0-based) of comments that qualify as stories.
-Format: {"story_indices": [0, 5, 12, ...]}`
-        },
-        {
-          role: 'user',
-          content: `Identify which of these comments contain personal stories or memories:\n\n${commentTexts}`
-        }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3
+Format: {"story_indices": [0, 5, 12, ...]}`,
+        responseMimeType: 'application/json',
+        temperature: 0.3
+      }
     })
 
-    const content = response.choices[0]?.message?.content
+    const content = response.text
     if (!content) return []
 
     const parsed = JSON.parse(content)
     const indices: number[] = parsed.story_indices || []
 
-    // Map indices back to full comment objects
     const storyComments: StoryComment[] = indices
       .filter(i => i >= 0 && i < sampleComments.length)
       .slice(0, 10) // Limit to top 10 stories
@@ -277,9 +250,3 @@ Format: {"story_indices": [0, 5, 12, ...]}`
     return []
   }
 }
-
-
-
-
-
-

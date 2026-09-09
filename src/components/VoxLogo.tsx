@@ -16,9 +16,6 @@ const sizes = {
 
 export function VoxLogo({ size = 'md', showText = true, subtitle }: VoxLogoProps) {
   const [isHovered, setIsHovered] = useState(false)
-  
-  // Responsive icon sizes for lg
-  const iconSize = size === 'lg' ? 'w-12 h-8 sm:w-16 sm:h-10 md:w-20 md:h-12' : ''
 
   return (
     <div
