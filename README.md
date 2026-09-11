@@ -8,10 +8,42 @@
 
 ## 📖 About The Project
 
-VoxTube analyzes YouTube comments using **OpenAI embeddings** and **clustering algorithms** to uncover hidden patterns, overarching themes, and personal stories from any video's comment section. 
+VoxTube analyzes YouTube comments using **Gemini AI embeddings** and **clustering algorithms** to uncover hidden patterns, overarching themes, and personal stories from any video's comment section. 
 
 Popular videos have tens of thousands of comments, and nobody reads them all. VoxTube uses AI to help you understand what the crowd actually thinks, feels, and experiences.
 
+## ⚙️ System Architecture
+
+```mermaid
+graph TD
+    %% User Interaction
+    U((User)) -->|Searches Video| UI[React Frontend]
+    
+    %% YouTube API Fetch
+    UI -->|Query| YT[YouTube Data API v3]
+    YT -->|Returns Metadata + Top 200 Comments| SAN[Data Sanitization]
+    
+    %% Vectorization
+    SAN -->|Batched Text| GEM_E[Gemini API: gemini-embedding-2]
+    GEM_E -->|429 Rate Limit?| BO[Exponential Backoff Retry]
+    BO --> GEM_E
+    GEM_E -->|High-Dimensional Vectors| DM[Distance Matrix]
+    
+    %% Math & Clustering
+    DM -->|1 - Cosine Similarity| CLUST[Hierarchical Agglomerative Clustering]
+    CLUST -->|Fine Clusters| UI
+    CLUST -->|Coarse Clusters| GEM_L[Gemini API: gemini-3.6-flash]
+    
+    %% Parallel LLM Processing
+    GEM_L -->|Prompt 1| T1[Theme Naming]
+    GEM_L -->|Prompt 2| T2[Prose Summary]
+    GEM_L -->|Prompt 3| T3[Story Detection]
+    
+    %% Final UI Rendering
+    T1 --> UI
+    T2 --> UI
+    T3 --> UI
+```
 
 ## 🛠️ Tech Stack
 
@@ -32,7 +64,7 @@ Popular videos have tens of thousands of comments, and nobody reads them all. Vo
 
 You will need API keys for:
 - [YouTube Data API v3](https://developers.google.com/youtube/v3)
-- [OpenAI API](https://platform.openai.com/api-keys)
+- [Google AI Studio (Gemini API)](https://aistudio.google.com/app/apikey)
 
 ### Installation
 
@@ -51,7 +83,7 @@ You will need API keys for:
    Create a `.env` file in the root directory and add your API keys:
    ```env
    VITE_YOUTUBE_API_KEY=your_youtube_api_key_here
-   VITE_OPENAI_API_KEY=your_openai_api_key_here
+   VITE_GEMINI_API_KEY=your_gemini_api_key_here
    ```
 
 4. **Run the development server:**
